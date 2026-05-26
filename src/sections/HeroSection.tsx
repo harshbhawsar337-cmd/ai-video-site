@@ -13,6 +13,7 @@ export default function HeroSection() {
   const [loading, setLoading] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handlePromptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -21,6 +22,16 @@ export default function HeroSection() {
       textareaRef.current.style.height = 'auto';
       textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 160) + 'px';
     }
+  };
+
+  const tryLoadImage = (url: string, timeout: number): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new window.Image();
+      img.onload = () => resolve(url);
+      img.onerror = () => reject(new Error('failed'));
+      img.src = url;
+      setTimeout(() => reject(new Error('timeout')), timeout);
+    });
   };
 
   const handleCreate = async () => {
@@ -32,27 +43,34 @@ export default function HeroSection() {
     setError(null);
     setImageUrl(null);
 
-    try {
-      const encodedPrompt = encodeURIComponent(prompt);
-      const seed = Math.floor(Math.random() * 999999);
-      const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=800&height=600&seed=${seed}&nologo=true`;
-      
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      
-      await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
-        img.src = url;
-        setTimeout(reject, 60000);
-      });
+    const encodedPrompt = encodeURIComponent(prompt);
+    const seed = Math.floor(Math.random() * 999999);
 
-      setImageUrl(url);
-    } catch {
-      setError('Image generate nahi hui — dobara try karo!');
-    } finally {
-      setLoading(false);
+    const sources = [
+      `https://image.pollinations.ai/prompt/${encodedPrompt}?width=800&height=600&seed=${seed}&nologo=true&model=flux`,
+      `https://image.pollinations.ai/prompt/${encodedPrompt}?width=800&height=600&seed=${seed + 1}&nologo=true&model=turbo`,
+      `https://image.pollinations.ai/prompt/${encodedPrompt}?width=512&height=512&seed=${seed + 2}&nologo=true`,
+    ];
+
+    let success = false;
+    for (let i = 0; i < sources.length; i++) {
+      try {
+        setStatus(`Try ${i + 1}/3 — Image generate ho rahi hai...`);
+        const url = await tryLoadImage(sources[i], 45000);
+        setImageUrl(url);
+        success = true;
+        break;
+      } catch {
+        continue;
+      }
     }
+
+    if (!success) {
+      setError('Image generate nahi hui — dobara Create dabao!');
+    }
+
+    setLoading(false);
+    setStatus('');
   };
 
   return (
@@ -108,7 +126,7 @@ export default function HeroSection() {
             ref={textareaRef}
             value={prompt}
             onChange={handlePromptChange}
-            placeholder="Describe the image you want to create, e.g., 'A child flying a kite in a park, golden sunlight, cinematic style'"
+            placeholder="Describe the image you want to create, e.g., 'A beautiful sunset over mountains, cinematic style'"
             className="flex-1 resize-none outline-none text-[15px] leading-relaxed min-h-[60px] py-2"
             style={{ color: '#1A1A2E' }}
           />
@@ -147,14 +165,17 @@ export default function HeroSection() {
       {loading && (
         <div className="mt-6 flex flex-col items-center gap-4 py-8 rounded-2xl" style={{ backgroundColor: '#FFFFFF', border: '1px solid #E8E8F0' }}>
           <div className="w-12 h-12 rounded-full border-4 animate-spin" style={{ borderColor: '#E8E8F0', borderTopColor: '#7C5CFC' }} />
-          <p className="text-sm font-medium" style={{ color: '#7C5CFC' }}>Image generate ho rahi hai...</p>
-          <p className="text-xs" style={{ color: '#8A8A9A' }}>20-30 seconds lag sakte hain ✨</p>
+          <p className="text-sm font-medium" style={{ color: '#7C5CFC' }}>{status || 'Image generate ho rahi hai...'}</p>
+          <p className="text-xs" style={{ color: '#8A8A9A' }}>Agar fail ho toh dobara Create dabao ✨</p>
         </div>
       )}
 
       {error && (
-        <div className="mt-4 p-4 rounded-xl text-sm" style={{ backgroundColor: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA' }}>
-          ⚠️ {error}
+        <div className="mt-4 p-4 rounded-xl text-sm flex items-center justify-between" style={{ backgroundColor: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA' }}>
+          <span>⚠️ {error}</span>
+          <button onClick={handleCreate} className="ml-4 px-4 py-1.5 rounded-full text-sm font-medium text-white" style={{ backgroundColor: '#7C5CFC' }}>
+            Retry
+          </button>
         </div>
       )}
 
