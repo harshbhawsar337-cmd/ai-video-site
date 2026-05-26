@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { Plus, ArrowLeftRight, Sparkles, Diamond, Download, Wand2 } from 'lucide-react';
 
-const GEMINI_API_KEY = 'AIzaSyAZtItfK2m1rZUXLThBeKxDDH7b10UYMY4'; // ← Sirf ye line change karo
+const GEMINI_API_KEY = 'AIzaSyAqhq0vjguuef8B5EBkbeGBgupu0OJIeUU'; // ← Sirf ye line change karo
 
 const creationTabs = [
   { id: 'video', label: 'Create Video' },
