@@ -7,7 +7,7 @@ const creationTabs = [
   { id: 'agent', label: 'AI Agent' },
 ];
 
-const HF_API_KEY = "YOUR_API_KEY_HERE";
+const HF_API_KEY = "import.meta.env.VITE_HF_API_KEY";
 
 export default function HeroSection() {
   const [activeTab, setActiveTab] = useState('video');
