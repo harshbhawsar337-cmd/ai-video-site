@@ -5,34 +5,54 @@ export default async function handler(req) {
     return new Response(null, {
       headers: {
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type',
-      }
+      },
     });
   }
 
-  const { prompt } = await req.json();
-  const HF_API_KEY = process.env.VITE_HF_API_KEY;
+  const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-  const response = await fetch(
-    'https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell',
-    {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${HF_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ inputs: prompt, parameters: { num_inference_steps: 4 } }),
+  try {
+    const { prompt, action } = await req.json();
+
+    if (!prompt) {
+      return new Response(JSON.stringify({ error: 'Prompt required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      });
     }
-  );
 
-  const buffer = await response.arrayBuffer();
-  const base64 = Buffer.from(buffer).toString('base64');
-
-  return new Response(JSON.stringify({ image: `data:image/jpeg;base64,${base64}` }), {
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
+    if (action === 'enhance') {
+      const geminiRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: `You are an expert AI image prompt engineer. Enhance this simple prompt into a detailed, vivid, professional image generation prompt. Keep it under 100 words. Only return the enhanced prompt, nothing else.\n\nUser prompt: "${prompt}"` }] }],
+          }),
+        }
+      );
+      const geminiData = await geminiRes.json();
+      const enhanced = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || prompt;
+      return new Response(JSON.stringify({ enhanced }), {
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      });
     }
-  });
+
+    const seed = Math.floor(Math.random() * 999999);
+    const encodedPrompt = encodeURIComponent(prompt);
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=800&height=600&seed=${seed}&nologo=true&model=flux`;
+
+    return new Response(JSON.stringify({ imageUrl }), {
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+    });
+
+  } catch (err) {
+    return new Response(JSON.stringify({ error: 'Server error', details: String(err) }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+    });
+  }
 }
